@@ -1,14 +1,26 @@
-// FAKE CODE :)
+import mysql from 'mysql2';
 
+const connection = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    database: 'employeeDB'
+});
 
 // For example they chooose view all departments
 function viewAllDepartments() {
+    connection.query(
+        'SELECT * FROM `departments`',
+        function(err, results, fields) {
+            console.log(results);
+            console.log(fields);
+        }
+    );
     // we run a sql query to get all the departments info
     // this involves calling the right express route through JS
     // express route fills out a proper query and makes the call to SQL
     // gets the information then returns it back to here
     // we then display the info using the table package
-}
+};
 
 function viewAllRoles() {
     // Make express call for all the roles
