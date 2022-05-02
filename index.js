@@ -1,5 +1,6 @@
 const mysql = require('mysql2');
 const cTable = require('console.table');
+const inquirer = require('inquirer');
 
 const db = mysql.createConnection({
     host: 'localhost',
@@ -8,22 +9,14 @@ const db = mysql.createConnection({
     database: 'employee_db'
 });
 
-// For example they chooose view all departments
 function viewAllDepartments() {
-    db.query(
-        'SELECT * FROM `department`', (err, results) => {
-            if (err) {
-                console.log(err);
-            }
-            console.table(results);
+    db.query('SELECT * FROM department', (err, results) => {
+        if (err) {
+            console.log(err);
         }
-    );
-    // we run a sql query to get all the departments info
-    // this involves calling the right express route through JS
-    // express route fills out a proper query and makes the call to SQL
-    // gets the information then returns it back to here
-    // we then display the info using the table package
-}
+        console.table(results);
+    });
+};
 
 function viewAllRoles() {
     db.query('SELECT * FROM `role`', (err, results) => {
@@ -43,7 +36,7 @@ function viewAllEmployees() {
     db.query('SELECT * FROM `employee`', (err, results) => {
         if (err) {
             console.log(err);
-        }
+        } 
         console.table(results);
     });
     // Make express call for all the current employees
@@ -128,24 +121,115 @@ function quit() {
     // Return opposite of their answer
 }
 
-function init() {
+ function init() {
     // Run cool into logo page print 
+    const actionQuestion = 
+        {
+            type: "list",
+            name: "action",
+            message: "What would you like to do?",
+            choices: ["View All Departments", "Add Department", "View All Roles", "Add Role", "View All Employees", "Add Employee", "Update Employee Role", "Quit"],
+        }
+
     let gate = true;
     // while (gate) {
+        let answer = inquirer
+        .prompt(actionQuestion)
+        .then((answers) => {
+            console.log(answers);
+            switch (answers.action) {
+                case "View All Departments":
+                    viewAllDepartments();
+                    break;
+                case "View All Roles":
+                    viewAllRoles();
+                    break;
+                case "View All Employees":
+                    viewAllEmployees();
+                    break;
+                // case "Quit":
+                default:
+                    console.log('Something went wrong. Please try again');
+            }
+        })
+        .catch((error) => {
+            console.log(error);
+        });
+        // gate = answer.action !== "Quit";
         // Display them the different options
         // Get response back
         // Run a function depending on their answer
     // }
     // See you next time :) screen
-    viewAllDepartments();
-    viewAllRoles();
-    viewAllEmployees();
-    // addRole();
-    // addEmployee();
-    updateEmployeeRole();
-    viewAllEmployees();
 }
 
 
+        // {
+        //     type: "input",
+        //     name: "departmentName",
+        //     messagae: "What is the name of the new department?",
+        //     when(answers) {
+        //         return answers.action === "Add Department"
+        //     },
+        // },
+        // {
+        //     type: "input",
+        //     name: "roleName",
+        //     messagae: "What is the name of the new role?",
+        //     when(answers) {
+        //         return answers.action === "Add Role"
+        //     },
+        // },
+        // {
+        //     type: "input",
+        //     name: "roleSalary",
+        //     messagae: "What is the salary of the new role?",
+        //     when(answers) {
+        //         return answers.action === "Add Role"
+        //     },
+        // },
+        // {
+        //     type: "list",
+        //     name: "roleDepartment",
+        //     messagae: "What is the department of the new role?",
+        //     choices: await viewAllDepartments(),
+        //     when(answers) {
+        //         return answers.action === "Add Role"
+        //     },
+        // },
+        // {
+        //     type: "input",
+        //     name: "employeeFirstName",
+        //     messagae: "What is the first name of the new employee?",
+        //     when(answers) {
+        //         return answers.action === "Add Employee"
+        //     },
+        // },
+        // {
+        //     type: "input",
+        //     name: "employeeLastName",
+        //     messagae: "What is the last name of the new employee?",
+        //     when(answers) {
+        //         return answers.action === "Add Employee"
+        //     },
+        // },
+        // {
+        //     type: "list",
+        //     name: "employeeRole",
+        //     messagae: "What is the role of the new employee?",
+        //     choices: await viewAllRoles(false),
+        //     when(answers) {
+        //         return answers.action === "Add Employee"
+        //     },
+        // },
+        // {
+        //     type: "list",
+        //     name: "employeeManager",
+        //     messagae: "Who is the manager of the new employee?",
+        //     choices: await viewAllEmployees(false),
+        //     when(answers) {
+        //         return answers.action === "Add Employee"
+        //     },
+        // },
 // User launches the program we start with init()
 init();
