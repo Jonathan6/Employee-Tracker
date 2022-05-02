@@ -1,6 +1,7 @@
 const mysql = require('mysql2');
 const cTable = require('console.table');
 const inquirer = require('inquirer');
+const util = require('util');
 
 const db = mysql.createConnection({
     host: 'localhost',
@@ -8,6 +9,8 @@ const db = mysql.createConnection({
     password: '1111',
     database: 'employee_db'
 });
+
+db.query = util.promisify(db.query).bind(db);
 
 function viewAllDepartments() {
     db.query('SELECT * FROM department', (err, results) => {
@@ -47,73 +50,160 @@ function viewAllEmployees() {
 }
 
 function addDepartment() {
-    db.query('SELECT * FROM `employee`', (err, results) => {
-        if (err) {
-            console.log(err);
-        }
-        console.table(results);
-    });
-    // Make express call to add a department
-    // express handles the rest
-    // we run a sql mutation to add a department to the list
-    // send the information back to JS
-    // we confirm or deny the request
+    const departmentQuestion = 
+    {
+        type: "input",
+        name: "departmentName",
+        messagae: "What is the name of the new department?",
+    }
 
+    inquirer
+        .prompt(departmentQuestion)
+        .then((answers) => {
+            db.query('INSERT INTO `department` (name) VALUES (?)', answers.departmentName, (err, results) => {
+                if (err) {
+                    console.log(err);
+                }
+                viewAllDepartments();
+            })
+    }).catch((err) => {
+        console.log(err);
+    });
 }
 
 function addRole() {
-    db.query('INSERT INTO `role` (title, salary, department_id) VALUES (?, ?, ?)', 
-    ["pos4", 66.00, 2], (err, results) => {
+    db.query('SELECT * FROM department', (err, results) => {
         if (err) {
             console.log(err);
         }
-        console.table(results);
-    });
-    // Make express call to add a role
-    // express handles the rest
-    // we run a sql mutation to add a role to the list
-    // send the information back to JS
-    // we confirm or deny the request
 
-    // example pseudo
-    // SELECT the existing roles out for the 'roles' table
-    // .map() the results from 'roles' to question data for inquirer
-    // THEN prompe the user for role information (inquirer)
-        // Take the user's answers and go INSERT then into the 'role' table
+        const departmentData = results;
+        const departmentNames = departmentData.map(x => x.name);
+
+        const roleQuestions = 
+        [
+            {
+                type: "input",
+                name: "roleName",
+                messagae: "What is the name of the new role?",
+            },
+            {
+                type: "input",
+                name: "roleSalary",
+                messagae: "What is the salary of the new role?",
+            },
+            {
+                type: "list",
+                name: "roleDepartment",
+                messagae: "What is the department of the new role?",
+                choices: departmentNames
+            },
+        ]
+
+        viewAllRoles();
+        inquirer
+        .prompt(roleQuestions)
+        .then((answers) => {
+            const departmentElement = departmentData.find(element => element.name === answers.roleDepartment);
+            db.query('INSERT INTO `role` (title, salary, department_id) VALUES (?, ?, ?)', [answers.roleName, answers.roleSalary, departmentElement.id], (err, results) => {
+                if (err) {
+                    console.log(err);
+                }
+                viewAllRoles();
+            })
+        }).catch((err) => {
+            console.log(err);
+        });
+    });
+}
+
+async function addEmployee() {
     
+    const roleList = await db.query('SELECT * FROM `role`');
+    const roleNames = roleList.map((element) => {
+        return {id: element.id, name: element.title}}
+    );
 
+    const employeeList = await db.query('SELECT * FROM `employee`');
+    const employeeNames = employeeList.map((element) => {
+        return {id: element.id, name: `${element.first_name} ${element.last_name}`}
+    });
+
+
+    const employeeQuestions =
+    [
+        {
+            type: "input",
+            name: "employeeFirstName",
+            messagae: "What is the first name of the new employee?",
+        },
+        {
+            type: "input",
+            name: "employeeLastName",
+            messagae: "What is the last name of the new employee?",
+        },
+        {
+            type: "list",
+            name: "employeeRole",
+            messagae: "What is the role of the new employee?",
+            choices: roleNames,
+        },
+        {
+            type: "list",
+            name: "employeeManager",
+            messagae: "Who is the manager of the new employee?",
+            choices: employeeNames,
+        }
+    ]
+
+    const employeeAnswers = await inquirer.prompt(employeeQuestions);
+            
+    const roleId = roleNames.find(element => element.name === employeeAnswers.employeeRole).id;
+    const managerId = employeeNames.find(element => element.name === employeeAnswers.employeeManager).id;
+
+    const employeeInsert = db.query('INSERT INTO `employee` (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)', 
+    [employeeAnswers.employeeFirstName, employeeAnswers.employeeLastName, roleId, managerId]);
+
+    viewAllEmployees();
 }
 
-function addEmployee() {
-    db.query('INSERT INTO `employee` (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)', 
-    ["joe", "mama", 1, 5], (err, results) => {
-        if (err) {
-            console.log(err);
-        }
-        console.table(results);
+async function updateEmployeeRole() {
+    const roleList = await db.query('SELECT * FROM `role`');
+    const roleNames = roleList.map((element) => {
+        return {id: element.id, name: element.title}}
+    );
+
+    const employeeList = await db.query('SELECT * FROM `employee`');
+    const employeeNames = employeeList.map((element) => {
+        return {id: element.id, name: `${element.first_name} ${element.last_name}`}
     });
-    // Make express call to add a employee
-    // express handles the rest
-    // we run a sql mutation to add a employee to the list
-    // send the information back to JS
-    // we confirm or deny the request
 
-}
+    const employeeQuestions =
+    [
+        {
+            type: "list",
+            name: "employee",
+            messagae: "Which employee do you want to update?",
+            choices: employeeNames,
+        },
+        {
+            type: "list",
+            name: "newRole",
+            messagae: "What is this employee's new role?",
+            choices: roleNames,
+        },
+    ]
 
-function updateEmployeeRole() {
-    db.query('UPDATE `employee` SET role_id = ? WHERE id = ?', 
-    [ 2, 1], (err, results) => {
-        if (err) {
-            console.log(err);
-        }
-        console.table(results);
-    });
-    // Make express call to update an employee
-    // express handles the rest
-    // we run a sql mutation to update an employee based on id
-    // send the information back to JS
-    // we confirm or deny the request
+    const userAnswers = await inquirer.prompt(employeeQuestions);
 
+             
+    const roleId = roleNames.find(element => element.name === userAnswers.newRole).id;
+    const employeeId = employeeNames.find(element => element.name === userAnswers.employee).id;
+
+    const employeeUpdate = db.query('UPDATE `employee` SET role_id = ? WHERE id = ?', 
+    [ roleId, employeeId]);
+    
+    viewAllEmployees();
 }
 
 function quit() {
@@ -132,22 +222,34 @@ function quit() {
         }
 
     let gate = true;
-    // while (gate) {
+    while (gate) {
         let answer = inquirer
         .prompt(actionQuestion)
         .then((answers) => {
-            console.log(answers);
             switch (answers.action) {
                 case "View All Departments":
                     viewAllDepartments();
                     break;
+                case "Add Department":
+                    addDepartment();
+                    break;
                 case "View All Roles":
                     viewAllRoles();
+                    break;
+                case "Add Role":
+                    addRole();
                     break;
                 case "View All Employees":
                     viewAllEmployees();
                     break;
-                // case "Quit":
+                case "Add Employee":
+                    addEmployee();
+                    break;
+                case "Update Employee Role":
+                    updateEmployeeRole();
+                    break;
+                case "Quit":
+                    break;
                 default:
                     console.log('Something went wrong. Please try again');
             }
@@ -159,77 +261,9 @@ function quit() {
         // Display them the different options
         // Get response back
         // Run a function depending on their answer
-    // }
+    }
     // See you next time :) screen
 }
 
-
-        // {
-        //     type: "input",
-        //     name: "departmentName",
-        //     messagae: "What is the name of the new department?",
-        //     when(answers) {
-        //         return answers.action === "Add Department"
-        //     },
-        // },
-        // {
-        //     type: "input",
-        //     name: "roleName",
-        //     messagae: "What is the name of the new role?",
-        //     when(answers) {
-        //         return answers.action === "Add Role"
-        //     },
-        // },
-        // {
-        //     type: "input",
-        //     name: "roleSalary",
-        //     messagae: "What is the salary of the new role?",
-        //     when(answers) {
-        //         return answers.action === "Add Role"
-        //     },
-        // },
-        // {
-        //     type: "list",
-        //     name: "roleDepartment",
-        //     messagae: "What is the department of the new role?",
-        //     choices: await viewAllDepartments(),
-        //     when(answers) {
-        //         return answers.action === "Add Role"
-        //     },
-        // },
-        // {
-        //     type: "input",
-        //     name: "employeeFirstName",
-        //     messagae: "What is the first name of the new employee?",
-        //     when(answers) {
-        //         return answers.action === "Add Employee"
-        //     },
-        // },
-        // {
-        //     type: "input",
-        //     name: "employeeLastName",
-        //     messagae: "What is the last name of the new employee?",
-        //     when(answers) {
-        //         return answers.action === "Add Employee"
-        //     },
-        // },
-        // {
-        //     type: "list",
-        //     name: "employeeRole",
-        //     messagae: "What is the role of the new employee?",
-        //     choices: await viewAllRoles(false),
-        //     when(answers) {
-        //         return answers.action === "Add Employee"
-        //     },
-        // },
-        // {
-        //     type: "list",
-        //     name: "employeeManager",
-        //     messagae: "Who is the manager of the new employee?",
-        //     choices: await viewAllEmployees(false),
-        //     when(answers) {
-        //         return answers.action === "Add Employee"
-        //     },
-        // },
 // User launches the program we start with init()
 init();
