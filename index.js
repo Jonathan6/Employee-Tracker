@@ -2,7 +2,9 @@ const mysql = require("mysql2");
 const cTable = require("console.table");
 const inquirer = require("inquirer");
 const util = require("util");
+const { env } = require("process");
 
+// SQL connection
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
@@ -10,24 +12,30 @@ const db = mysql.createConnection({
   database: "employee_db",
 });
 
+// Allows async SQL queries
 db.query = util.promisify(db.query).bind(db);
 
+// Queries for all departments
 async function viewAllDepartments() {
   const departmentData = await db.query("SELECT * FROM department");
   console.table(departmentData);
 }
 
+// Queries for all roles
 async function viewAllRoles() {
   const roleData = await db.query("SELECT * FROM `role`");
   console.table(roleData);
 }
 
+// Queries for all Employees
 async function viewAllEmployees() {
   const employeeData = await db.query("SELECT * FROM `employee`");
   console.table(employeeData);
 }
 
+// Adds a new Department
 async function addDepartment() {
+  // Inquirer question
   const departmentQuestion = {
     type: "input",
     name: "departmentName",
@@ -36,16 +44,20 @@ async function addDepartment() {
 
   const userInput = await inquirer.prompt(departmentQuestion);
 
+  // Takes in inquirer prompt to run insert SQL mutation
   const insertData = await db.query(
     "INSERT INTO `department` (name) VALUES (?)",
     userInput.departmentName
   );
 }
 
+// Adds a new role
 async function addRole() {
+  // Queries all departments and maps it to use name property tag for inquirer
   const departmentData = await db.query("SELECT * FROM department");
   const departmentNames = departmentData.map((x) => x.name);
 
+  // Inquirer question
   const roleQuestions = [
     {
       type: "input",
@@ -67,16 +79,21 @@ async function addRole() {
 
   const answers = await inquirer.prompt(roleQuestions);
 
+  // rematch with original data to find id
   const departmentElement = departmentData.find(
     (element) => element.name === answers.roleDepartment
   );
+
+  // role SQL insert mutation
   const roleInsert = await db.query(
     "INSERT INTO `role` (title, salary, department_id) VALUES (?, ?, ?)",
     [answers.roleName, answers.roleSalary, departmentElement.id]
   );
 }
 
+// Adds a new employee
 async function addEmployee() {
+  // Queries for data and maps it to use name property tag for inquirer
   const roleList = await db.query("SELECT * FROM `role`");
   const roleNames = roleList.map((element) => {
     return { id: element.id, name: element.title };
@@ -90,6 +107,7 @@ async function addEmployee() {
     };
   });
 
+  // inquirer question
   const employeeQuestions = [
     {
       type: "input",
@@ -117,6 +135,7 @@ async function addEmployee() {
 
   const employeeAnswers = await inquirer.prompt(employeeQuestions);
 
+  // rematch with original data to find id
   const roleId = roleNames.find(
     (element) => element.name === employeeAnswers.employeeRole
   ).id;
@@ -124,6 +143,7 @@ async function addEmployee() {
     (element) => element.name === employeeAnswers.employeeManager
   ).id;
 
+  // employee SQL insert mutation
   const employeeInsert = db.query(
     "INSERT INTO `employee` (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)",
     [
@@ -133,11 +153,11 @@ async function addEmployee() {
       managerId,
     ]
   );
-
-  viewAllEmployees();
 }
 
+// updates an existing employee with a new role
 async function updateEmployeeRole() {
+  // queries data for list of employees and roles. maps data to use name property
   const roleList = await db.query("SELECT * FROM `role`");
   const roleNames = roleList.map((element) => {
     return { id: element.id, name: element.title };
@@ -151,6 +171,7 @@ async function updateEmployeeRole() {
     };
   });
 
+  // inquirer question
   const employeeQuestions = [
     {
       type: "list",
@@ -168,6 +189,7 @@ async function updateEmployeeRole() {
 
   const userAnswers = await inquirer.prompt(employeeQuestions);
 
+  // finds id of the role and employee selected for SQL update
   const roleId = roleNames.find(
     (element) => element.name === userAnswers.newRole
   ).id;
@@ -175,15 +197,15 @@ async function updateEmployeeRole() {
     (element) => element.name === userAnswers.employee
   ).id;
 
+  // SQL update mutation
   const employeeUpdate = db.query(
     "UPDATE `employee` SET role_id = ? WHERE id = ?",
     [roleId, employeeId]
   );
-
 }
 
+// start function that asks the user what function to run
 async function init() {
-  // Run cool into logo page print
   const actionQuestion = {
     type: "list",
     name: "action",
@@ -227,12 +249,11 @@ async function init() {
         await updateEmployeeRole();
         break;
       case "Quit":
-          gate = false;
+        gate = false;
       default:
         db.end();
     }
   }
-  // See you next time :) screen
 }
 
 // User launches the program we start with init()
